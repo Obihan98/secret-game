@@ -45,6 +45,7 @@
   - **Systems:** economy, movement, combat etc. are separate modules that read state and emit events, never call each other directly. Each has its own seeded RNG stream (TM9).
   - **Snapshots:** the full state is saved periodically (e.g. each game-month); restart = latest snapshot + replay of the log after it (TS6).
 - Event queue (stage 1): a binary heap keyed `(game-second, priority, sequence)`; lower priority runs first; the sequence is a per-queue counter, so every key is unique and pop order never depends on heap internals.
+- World (stage 2): `World` holds `Vec` tables (`nations`, `provinces`), the queue and the RNG streams; `run_until(t)` pops every event with time <= t. Event kinds and their priorities live in one `match` (`event.rs`); stream IDs in one table (`rng::streams`). The state hash covers clock, streams, tables and the pending queue (TM9). Golden hash for the tiny world is committed in `crates/sim/tests/tiny_world.rs`.
 - Open details: snapshot interval, how modules share read access to state.
 - Cross-checks: TM2, TM9, WD1, WD2, AI1, TS3, TS4, TS6
 

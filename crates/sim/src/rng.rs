@@ -10,6 +10,14 @@ const GOLDEN_GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StreamId(pub u32);
 
+/// The fixed stream table: one ID per system, never renumbered (renumbering changes rolls).
+pub mod streams {
+    use super::StreamId;
+
+    /// Daily-pass offsets of new nations (TM2).
+    pub const SCHEDULE: StreamId = StreamId(0);
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rng {
     s: [u64; 4],
@@ -30,6 +38,13 @@ impl Rng {
                 splitmix_next(&mut sm),
             ],
         }
+    }
+
+    /// The raw state, for the state hash (and later snapshots): a stream's future draws are
+    /// world state like any table.
+    #[must_use]
+    pub const fn state_words(&self) -> [u64; 4] {
+        self.s
     }
 
     pub fn next_u64(&mut self) -> u64 {

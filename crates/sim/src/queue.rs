@@ -90,6 +90,25 @@ impl<E> EventQueue<E> {
         self.heap.peek().map(|Reverse(e)| e.key)
     }
 
+    /// The sequence the next push will get; part of world state, since it decides future ties.
+    #[must_use]
+    pub const fn next_sequence(&self) -> u64 {
+        self.next_sequence
+    }
+
+    /// Every pending event in pop order, without popping. The heap's internal layout is not
+    /// part of the state, so anything that hashes or saves the queue goes through this.
+    #[must_use]
+    pub fn sorted(&self) -> Vec<(EventKey, &E)> {
+        let mut entries: Vec<_> = self
+            .heap
+            .iter()
+            .map(|Reverse(e)| (e.key, &e.event))
+            .collect();
+        entries.sort_unstable_by_key(|&(key, _)| key);
+        entries
+    }
+
     #[must_use]
     pub fn len(&self) -> usize {
         self.heap.len()
@@ -149,6 +168,18 @@ mod tests {
         assert_eq!(q.pop().map(|(k, ())| k), Some(k1));
         assert!(q.is_empty());
         assert_eq!(q.pop(), None);
+    }
+
+    #[test]
+    fn sorted_matches_pop_order_and_leaves_queue_intact() {
+        let mut q = EventQueue::new();
+        q.push(GameTime(5), Priority(1), "b");
+        q.push(GameTime(5), Priority(0), "a");
+        q.push(GameTime(9), Priority(0), "c");
+        let listed: Vec<_> = q.sorted().into_iter().map(|(k, &e)| (k, e)).collect();
+        assert_eq!(q.len(), 3);
+        assert_eq!(q.next_sequence(), 3);
+        assert_eq!(listed, drain(&mut q));
     }
 
     proptest! {

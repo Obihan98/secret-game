@@ -28,7 +28,9 @@
 - Implication: simultaneous events need a fixed ordering, `(timestamp, priority, sequence id)`, so outcomes are identical every run (see TM9). Decided: priority comes from a fixed table per event kind (e.g. a combat phase runs before the daily pass in the same second); `sequence id` breaks any remaining tie. TS5 uses the same key.
 - Decided: the client holds **no game formulas** beyond linear extrapolation of server-sent parameters (position = path + start time; balance = `balance + rate × elapsed`). Anything else, such as a march-time preview, is a server query. So no formulas are shared with the client in v1 (TS3, TS4).
 - Rejected: pure fixed tick (wasted work when idle, coarse timing for marching and battles); pure continuous (see above); client-authoritative simulation (cheating, desyncs).
-- Open details: daily stagger scheme; which systems run daily vs monthly (TM8).
+- **Smooth for the player (decided 2026-10-11):** everything a player sees moves continuously (balances, marches, population). **Sudden changes** (a province changes owner, a blockade starts) are events that recompute the affected rates in the same game-second; only **gradual changes** (growth, supply drift, harvests) wait for the daily pass. No player-visible effect waits for the pass.
+- **Daily stagger (decided 2026-10-11, build-order stage 2):** when a nation is created, its pass offset is drawn once from a dedicated `schedule` RNG stream, uniform over the day in whole seconds, redrawn until it differs from every existing nation's offset, and stored in the nation table. It never changes for the nation's lifetime, so adding nations shifts nobody. Every nation gets exactly one pass per game-day; only the time of day differs. The offset is server-only.
+- Open details: which systems run daily vs monthly (TM8).
 - Cross-checks: TM1, TM6, TM8, TM9, MP2, MP7, MP9, FI3, PO5, CB3, TS3, TS4, TS5
 
 ### TM9. Determinism & audit log ✅
@@ -41,6 +43,7 @@
 - **Number and RNG formats (decided 2026-10-11, build-order stage 1):**
   - Fixed-point is `i64` Q32.32 (32 integer bits, 32 fraction bits: range ±2.1 billion, precision ~2.3e-10, so small daily rates such as 1%/year survive). Multiply and divide go through `i128`. Results round to nearest, ties to even, so 30 years of daily passes do not drift in one direction. Overflow and division by zero return an error; nothing wraps or saturates silently.
   - The PRNG is our own xoshiro256**. Each stream's state is filled by SplitMix64 from `(world seed, stream id)`, one stream id per system. Golden-value tests pin the output.
+  - The **state hash** (decided 2026-10-11, build-order stage 2) is our own 64-bit FNV-1a over a fixed little-endian encoding of every table in ID order, the RNG stream states and the pending event queue. Any single changed byte changes it, which is what divergence detection needs; it is not tamper-proof (a cryptographic hash can be added if audit requires it). Golden values pin it.
 - Cost accepted: the simulation must be strictly deterministic (no hash-order iteration, no wall-clock reads, no platform-dependent float behavior). This constrains language and architecture (TS3, TS5), so it is decided before them.
 - Open details: snapshot cadence; log retention; whether players can see replays of their own battles (TM10).
 - Cross-checks: TM1, TM2, TM3, TM10, TS3, TS4, TS5, TS6, TS12, FA (dispute resolution)

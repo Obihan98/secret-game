@@ -101,6 +101,22 @@ impl Fixed {
             i128::from(rhs.0),
         ))
     }
+
+    /// `self * num / den` with a single rounding, e.g. a per-day rate times elapsed seconds
+    /// over seconds per day. Two separate steps would round twice.
+    ///
+    /// # Errors
+    /// `DivisionByZero` if `den` is 0, `Overflow` if the result is out of range.
+    pub fn mul_ratio(self, num: i64, den: i64) -> Result<Self, FixedError> {
+        if den == 0 {
+            return Err(FixedError::DivisionByZero);
+        }
+        // |bits * num| <= 2^126, so the product always fits in i128.
+        narrow(div_round_half_even(
+            i128::from(self.0) * i128::from(num),
+            i128::from(den),
+        ))
+    }
 }
 
 fn narrow(bits: i128) -> Result<Fixed, FixedError> {
@@ -203,6 +219,15 @@ mod tests {
     }
 
     #[test]
+    fn mul_ratio_rounds_once() {
+        // 3 ulp * 1/2 = 1.5 ulp -> 2; 10 * 43200/86400 = 5 exactly.
+        assert_eq!(Fixed(3).mul_ratio(1, 2), Ok(Fixed(2)));
+        assert_eq!(f(10).mul_ratio(43_200, 86_400), Ok(f(5)));
+        assert_eq!(f(1).mul_ratio(1, 0), Err(FixedError::DivisionByZero));
+        assert_eq!(Fixed::MAX.mul_ratio(2, 1), Err(FixedError::Overflow));
+    }
+
+    #[test]
     fn division_by_zero_is_an_error() {
         assert_eq!(
             f(1).checked_div(Fixed::ZERO),
@@ -284,6 +309,16 @@ mod tests {
         fn div_matches_reference(a: i64, b in any::<i64>().prop_filter("non-zero", |b| *b != 0)) {
             let expected = reference(i128::from(a) << 32, i128::from(b));
             prop_assert_eq!(Fixed(a).checked_div(Fixed(b)), expected);
+        }
+
+        #[test]
+        fn mul_ratio_matches_reference(
+            a: i64,
+            n: i64,
+            d in any::<i64>().prop_filter("non-zero", |d| *d != 0),
+        ) {
+            let expected = reference(i128::from(a) * i128::from(n), i128::from(d));
+            prop_assert_eq!(Fixed(a).mul_ratio(n, d), expected);
         }
 
         #[test]
