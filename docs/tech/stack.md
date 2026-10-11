@@ -107,9 +107,16 @@
 - Open details: RAM per world, client FPS, profiling tools, the budget for the other numbers above.
 - Cross-checks: TM1, TM2, WD1, WD2, MP2, TS5, TS12
 
+### TS7. Networking 🟡
+- **Draft (2026-10-11, for build-order stage 7): WebSocket.** One connection per client that stays open while playing. Godot has a WebSocket client built in; it passes home routers and firewalls easily; marching armies do not need the split-second updates UDP gives shooters.
+- **Sync model: state on connect, then changes.** On connect the server sends everything the player's nation may see (MP9); after that, each change as it happens (an army sets off, with its road, start time and speed, so the client animates it; a province changes owner; a contact). Changes go out only after the flush that covers them (TS6). An order is answered with an ack after that flush, or a rejection at once.
+- Messages are binary in our own little-endian encoding (like the log, TS6), versioned; GDScript reads them with `StreamPeerBuffer`.
+- Each world is one server process with one thread: the WebSocket library is used in its blocking-free mode and polled by the world loop, so no async runtime is needed.
+- Open details: authentication (TS11), compression, reconnect replay, bandwidth budget per client (TS13).
+- Cross-checks: TS2, TS4, TS6, TS11, TS13, MP9, TM2
+
 ## Topic backlog
 
-- ⬜ **TS7 Networking** — transport (ENet / WebSocket / WebRTC), sync model (deltas, events), interest management by fog of war.
 - ⬜ **TS8 Map data pipeline** — how provinces/terrain are authored and stored (province bitmap, vector, generated), editor tooling.
 - ⬜ **TS9 Map rendering** — province color-lookup shader, map modes, zoom levels, unit icons, renderer choice.
 - ⬜ **TS10 Content data format** — Godot Resources vs JSON/CSV for goods, units, events; moddability.

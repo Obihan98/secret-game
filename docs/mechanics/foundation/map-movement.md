@@ -39,13 +39,18 @@
 - Later: speed by unit type, forced march, fatigue, roads (MP5), rivers (MP4).
 - Cross-checks: TM1, TM2, MP3, MP5, MP8, AR8, AR1, CB
 
+### MP9. Fog of war 🟡
+- **Draft (2026-10-11, minimal for build-order stage 7):** everyone always sees the whole map and who owns each province. **Armies are visible only near you:** in your own provinces, in provinces bordering yours, and around your own armies (the province an army stands in, or both ends of the road it is on, plus the provinces next to those). An army on a road is visible if either end of the road is. Example: a French army marching inside Austria is hidden from Britain unless a British army is nearby.
+- The server filters before sending (TS4): a client never receives what its nation cannot see, so a modified client cannot reveal it.
+- Later: scouting radius and cavalry screens, information delay (MP10), spies (ES), seeing other nations' provinces in detail.
+- Cross-checks: MP2, MP7, MP10, TS4, TS7, ES1
+
 ## Topic backlog
 
 - ⬜ **MP4 Rivers & crossings** — bridges, fords, pontoons, river lines as defenses.
 - ⬜ **MP5 Roads & infrastructure** — road quality, building roads, canals.
 - ⬜ **MP6 Weather & climate** — winter, mud season, rain, regional climate (Russian winter, Spanish heat).
 - ⬜ **MP8 Orders & pathfinding** — waypoints, march orders, rally points, follow/shadow orders.
-- ⬜ **MP9 ★ Fog of war** — what you can see, scouting radius, cavalry screens.
 - ⬜ **MP10 Information delay** — news travels at courier speed (links TM7, ES5).
 - ⬜ **MP11 Control model** — ownership vs occupation vs military control of a province.
 - ⬜ **MP12 Strategic locations** — fortresses, mountain passes, ports, straits, capitals.
