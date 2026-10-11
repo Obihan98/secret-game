@@ -31,6 +31,38 @@ impl fmt::Display for DecodeError {
 
 impl std::error::Error for DecodeError {}
 
+/// Where state bytes go. Both the snapshot `Writer` and the state hasher are sinks, and the
+/// world writes itself the same way into either, so the hash covers exactly what a snapshot
+/// saves and the two can never drift apart.
+pub trait Sink {
+    fn put_bytes(&mut self, bytes: &[u8]);
+
+    fn put_u8(&mut self, n: u8) {
+        self.put_bytes(&[n]);
+    }
+
+    fn put_u16(&mut self, n: u16) {
+        self.put_bytes(&n.to_le_bytes());
+    }
+
+    fn put_u32(&mut self, n: u32) {
+        self.put_bytes(&n.to_le_bytes());
+    }
+
+    fn put_u64(&mut self, n: u64) {
+        self.put_bytes(&n.to_le_bytes());
+    }
+
+    fn put_i64(&mut self, n: i64) {
+        self.put_bytes(&n.to_le_bytes());
+    }
+
+    /// Lengths go in as `u64` so the bytes are the same on 32- and 64-bit hosts.
+    fn put_len(&mut self, n: usize) {
+        self.put_u64(n as u64);
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Writer {
     buf: Vec<u8>,
@@ -42,34 +74,15 @@ impl Writer {
         Self { buf: Vec::new() }
     }
 
-    pub fn put_u8(&mut self, n: u8) {
-        self.buf.push(n);
-    }
-
-    pub fn put_u16(&mut self, n: u16) {
-        self.buf.extend_from_slice(&n.to_le_bytes());
-    }
-
-    pub fn put_u32(&mut self, n: u32) {
-        self.buf.extend_from_slice(&n.to_le_bytes());
-    }
-
-    pub fn put_u64(&mut self, n: u64) {
-        self.buf.extend_from_slice(&n.to_le_bytes());
-    }
-
-    pub fn put_i64(&mut self, n: i64) {
-        self.buf.extend_from_slice(&n.to_le_bytes());
-    }
-
-    /// Lengths go in as `u64` so the bytes are the same on 32- and 64-bit hosts.
-    pub fn put_len(&mut self, n: usize) {
-        self.put_u64(n as u64);
-    }
-
     #[must_use]
     pub fn into_bytes(self) -> Vec<u8> {
         self.buf
+    }
+}
+
+impl Sink for Writer {
+    fn put_bytes(&mut self, bytes: &[u8]) {
+        self.buf.extend_from_slice(bytes);
     }
 }
 

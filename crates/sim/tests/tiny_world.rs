@@ -7,30 +7,42 @@ use proptest::prelude::*;
 use sim::fixed::Fixed;
 use sim::id::NationId;
 use sim::time::{GameTime, SECONDS_PER_DAY};
-use sim::world::{Province, SimError, World};
+use sim::world::{Province, Scenario, SimError, Terrain, World};
 
 const YEAR: GameTime = GameTime(365 * SECONDS_PER_DAY);
 
 /// Committed golden value (TS12): any change to sim output fails here until updated on purpose.
-const GOLDEN_HASH_SEED_42: u64 = 11_908_969_027_492_583_370;
+// Hash version 2 (stage 6): the hash now covers terrain, borders, armies and contacts.
+const GOLDEN_HASH_SEED_42: u64 = 7_286_087_087_043_754_681;
 const GOLDEN_OFFSETS_SEED_42: [i64; 2] = [84_373, 5_925];
+
+fn world(nations: u32, provinces: Vec<Province>) -> Scenario {
+    Scenario {
+        nations,
+        provinces,
+        ..Scenario::default()
+    }
+}
 
 fn tiny(seed: u64) -> World {
     let provinces = [
         Province {
             owner: NationId(0),
             base_income: Fixed::from_int(10),
+            terrain: Terrain::Plains,
         },
         Province {
             owner: NationId(0),
             base_income: Fixed::from_ratio(5, 2).unwrap(),
+            terrain: Terrain::Plains,
         },
         Province {
             owner: NationId(1),
             base_income: Fixed::from_int(7),
+            terrain: Terrain::Plains,
         },
     ];
-    World::new(seed, 2, &provinces).unwrap()
+    World::new(seed, &world(2, provinces.to_vec())).unwrap()
 }
 
 fn hash_after(seed: u64, t: GameTime) -> u64 {
@@ -100,9 +112,10 @@ fn run_until_rejects_the_past_and_bad_owners() {
     let orphan = [Province {
         owner: NationId(2),
         base_income: Fixed::ONE,
+        terrain: Terrain::Plains,
     }];
     assert_eq!(
-        World::new(1, 2, &orphan).err(),
+        World::new(1, &world(2, orphan.to_vec())).err(),
         Some(SimError::UnknownNation(NationId(2)))
     );
 }
@@ -134,12 +147,12 @@ proptest! {
     /// Many nations force offset collisions, which must be redrawn.
     #[test]
     fn offsets_are_distinct_and_within_the_day(seed: u64) {
-        let w = World::new(seed, 300, &[]).unwrap();
+        let w = World::new(seed, &world(300, Vec::new())).unwrap();
         let mut seen = offsets(&w);
         prop_assert!(seen.iter().all(|o| (0..SECONDS_PER_DAY).contains(o)));
         seen.sort_unstable();
         seen.dedup();
         prop_assert_eq!(seen.len(), 300);
-        prop_assert_eq!(offsets(&World::new(seed, 300, &[]).unwrap()), offsets(&w));
+        prop_assert_eq!(offsets(&World::new(seed, &world(300, Vec::new())).unwrap()), offsets(&w));
     }
 }

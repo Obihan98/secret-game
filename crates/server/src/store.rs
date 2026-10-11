@@ -245,7 +245,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("store-sync-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let rec = Recorder::create(1, 1, &[]).unwrap();
+        let scenario = sim::world::Scenario {
+            nations: 1,
+            ..Default::default()
+        };
+        let rec = Recorder::create(1, &scenario).unwrap();
         let store = Store::create(&dir.join("w.db"), &rec).unwrap();
         let sync: i64 = store
             .conn

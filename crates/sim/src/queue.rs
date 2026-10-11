@@ -19,7 +19,7 @@ pub struct EventKey {
     pub sequence: u64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Entry<E> {
     key: EventKey,
     event: E,
@@ -46,7 +46,7 @@ impl<E> Ord for Entry<E> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EventQueue<E> {
     heap: BinaryHeap<Reverse<Entry<E>>>,
     next_sequence: u64,

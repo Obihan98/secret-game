@@ -9,12 +9,11 @@ use proptest::prelude::*;
 use sim::codec::DecodeError;
 use sim::fixed::Fixed;
 use sim::id::{NationId, ProvinceId};
-use sim::log::{AdminAction, Entry, FORMAT_VERSION, Record, Recorder, ReplayError};
+use sim::log::{AdminAction, Entry, RECORD_FORMAT, Record, Recorder, ReplayError, SNAPSHOT_FORMAT};
 use sim::order::Order;
 use sim::rng::{Rng, StreamId};
 use sim::time::{GameTime, SECONDS_PER_DAY};
-use sim::world::Province;
-use sim::world::SimError;
+use sim::world::{Province, Scenario, SimError, Terrain};
 
 const DAY: i64 = SECONDS_PER_DAY;
 const YEAR: i64 = 365 * DAY;
@@ -24,20 +23,31 @@ fn provinces() -> [Province; 3] {
         Province {
             owner: NationId(0),
             base_income: Fixed::from_int(10),
+            terrain: Terrain::Plains,
         },
         Province {
             owner: NationId(0),
             base_income: Fixed::from_ratio(5, 2).unwrap(),
+            terrain: Terrain::Plains,
         },
         Province {
             owner: NationId(1),
             base_income: Fixed::from_int(7),
+            terrain: Terrain::Plains,
         },
     ]
 }
 
+fn scenario() -> Scenario {
+    Scenario {
+        nations: 2,
+        provinces: provinces().to_vec(),
+        ..Scenario::default()
+    }
+}
+
 fn create(seed: u64) -> Recorder {
-    Recorder::create(seed, 2, &provinces()).unwrap()
+    Recorder::create(seed, &scenario()).unwrap()
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -332,9 +342,10 @@ fn replay_rejects_short_logs_and_bad_snapshots() {
     );
 }
 
-// Committed golden bytes (TS12) for format version 1. If a layout change breaks this test,
-// bump FORMAT_VERSION, keep these bytes, and make the new build read them through a migration:
-// that is the "version N loads in N+1" test from build-order stage 3.
+// Committed golden bytes (TS12). A layout change bumps the format version, keeps the old
+// bytes here and makes the new build read them: the "version N loads in N+1" test from
+// build-order stage 3. Snapshot v1 is from stage 3; v2 (stage 6) adds terrain, borders,
+// armies and contacts. Records are still v1.
 
 const GOLDEN_V1_SNAPSHOT: &str = concat!(
     "010001000000080000000000000025232284e49cf2cb07a30200000000008d456cf1a90970474be4",
@@ -343,6 +354,16 @@ const GOLDEN_V1_SNAPSHOT: &str = concat!(
     "0100000000002517000000000000030000000000000000000000000000000a000000000000000000",
     "0080020000000000000000000000070000000600000000000000020000000000000025ba02000000",
     "000064000400000000000000000100000095ec030000000000640005000000000000000000000000",
+);
+
+const GOLDEN_V2_SNAPSHOT: &str = concat!(
+    "020001000000080000000000000025232284e49cf2cb07a30200000000008d456cf1a90970474be4",
+    "b717555ef54801c2fb03258461e087d130b21b3b1bc2020000000000000048c037401f0000000000",
+    "008013000000159b0200000000009549010000000000abaaaa4a070000000000000000000000a568",
+    "0100000000002517000000000000030000000000000000000000000000000a000000000000000000",
+    "00008002000000000000000000000000070000000000000000000000000000000000000000000000",
+    "00000000000600000000000000020000000000000025ba0200000000006400040000000000000000",
+    "0100000095ec030000000000640005000000000000000000000000",
 );
 
 const GOLDEN_V1_RECORDS: [&str; 8] = [
@@ -386,39 +407,56 @@ fn unhex(s: &str) -> Vec<u8> {
 }
 
 #[test]
-fn format_v1_golden_bytes() {
+fn record_format_v1_is_unchanged() {
     let rec = golden_session();
-    let records: Vec<String> = rec.log().iter().map(|r| hex(&r.encode())).collect();
-    assert_eq!(hex(&rec.snapshot()), GOLDEN_V1_SNAPSHOT);
-    assert_eq!(records, GOLDEN_V1_RECORDS);
+    assert_eq!(rec.log().len(), GOLDEN_V1_RECORDS.len());
+    for (golden, live) in GOLDEN_V1_RECORDS.iter().zip(rec.log()) {
+        let bytes = unhex(golden);
+        let decoded = Record::decode(&bytes).unwrap();
+        assert_eq!(decoded.encode(), bytes);
+        // Daily hashes changed with the stage 6 state layout; every other record is the same.
+        if matches!(live.entry, Entry::DayHash { .. }) {
+            assert_eq!(decoded.at, live.at);
+        } else {
+            assert_eq!(&decoded, live);
+        }
+    }
 }
 
 #[test]
-fn format_v1_golden_snapshot_loads_and_runs_on() {
-    let mut live = golden_session();
-    let golden = unhex(GOLDEN_V1_SNAPSHOT);
-    let mut loaded = Recorder::replay(&golden, live.log()).unwrap();
-    for rec in [&mut live, &mut loaded] {
-        rec.advance_to(GameTime(30 * DAY)).unwrap();
+fn snapshot_format_v2_golden_bytes() {
+    assert_eq!(hex(&golden_session().snapshot()), GOLDEN_V2_SNAPSHOT);
+}
+
+/// Every golden snapshot, old or current, loads and then runs on exactly like the live world.
+#[test]
+fn golden_snapshots_load_and_run_on() {
+    for golden in [GOLDEN_V1_SNAPSHOT, GOLDEN_V2_SNAPSHOT] {
+        let mut live = golden_session();
+        let mut loaded = Recorder::replay(&unhex(golden), live.log()).unwrap();
+        for rec in [&mut live, &mut loaded] {
+            rec.advance_to(GameTime(30 * DAY)).unwrap();
+        }
+        assert_eq!(loaded.snapshot(), live.snapshot());
     }
-    assert_eq!(loaded.snapshot(), live.snapshot());
 }
 
 #[test]
 fn unknown_format_versions_are_rejected() {
     let rec = golden_session();
-    let next = (FORMAT_VERSION + 1).to_le_bytes();
-    let mut snapshot = rec.snapshot();
-    snapshot[..2].copy_from_slice(&next);
-    assert_eq!(
-        Recorder::replay(&snapshot, rec.log()).unwrap_err(),
-        ReplayError::Snapshot(DecodeError::UnsupportedVersion(FORMAT_VERSION + 1))
-    );
+    for version in [0, SNAPSHOT_FORMAT + 1] {
+        let mut snapshot = rec.snapshot();
+        snapshot[..2].copy_from_slice(&version.to_le_bytes());
+        assert_eq!(
+            Recorder::replay(&snapshot, rec.log()).unwrap_err(),
+            ReplayError::Snapshot(DecodeError::UnsupportedVersion(version))
+        );
+    }
     let mut record = rec.log()[0].encode();
-    record[..2].copy_from_slice(&next);
+    record[..2].copy_from_slice(&(RECORD_FORMAT + 1).to_le_bytes());
     assert_eq!(
         Record::decode(&record),
-        Err(DecodeError::UnsupportedVersion(FORMAT_VERSION + 1))
+        Err(DecodeError::UnsupportedVersion(RECORD_FORMAT + 1))
     );
 }
 

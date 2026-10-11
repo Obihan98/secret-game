@@ -37,6 +37,8 @@ Rules and status legend: [README.md](README.md).
 | TS5 | Simulation architecture | Hand-written ID-indexed tables (no ECS); one event queue; state changes only via events; one thread per world. Scale spike passed (T8, stage 4); ready to revisit for ✅ | [stack](tech/stack.md) |
 | TS12 | Testing | `cargo test`, `proptest`, `criterion`, committed golden hashes; `scripts/check.ps1` is the gate; GDScript test tool chosen at build-order stage 8 | [stack](tech/stack.md) |
 | TS13 | Performance budget | One full game-day of the whole world (30,000 provinces, ~200 nations) costs at most 1 s of single-thread time; measured at build-order stage 4 | [stack](tech/stack.md) |
+| MP3 | Terrain types | Minimal: plains, forest, hills, mountains; for now only march speed (100% / 75% / 75% / 50%) | [map-movement](mechanics/foundation/map-movement.md) |
+| MP7 | Movement model | Minimal: 20 km/game-day on plains, province to adjacent province, entered province's terrain sets the speed; exact arrival events, rescheduled by the daily pass | [map-movement](mechanics/foundation/map-movement.md) |
 | PL1 | Shared nations | Teams run nations, no player cap per nation (limits open) | [players-teams](mechanics/foundation/players-teams.md) |
 | PL4 | Hosting model | We run every machine; a world's creator is its admin (open: succession, private worlds, GM tools) | [players-teams](mechanics/foundation/players-teams.md) |
 | NV1 / CO1 | Naval and colony depth | In scope since MP1; how deep is open | [naval](mechanics/military/naval.md), [colonies-overseas](mechanics/statecraft/colonies-overseas.md) |

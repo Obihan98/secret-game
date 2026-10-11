@@ -19,7 +19,7 @@ use sim::log::{AdminAction, Entry, Record, Recorder};
 use sim::order::Order;
 use sim::rng::{Rng, StreamId};
 use sim::time::{GameTime, SECONDS_PER_DAY};
-use sim::world::{Province, SimError};
+use sim::world::{Province, Scenario, SimError, Terrain};
 
 const SEED: u64 = 42;
 const STEPS: usize = 10_000;
@@ -35,16 +35,27 @@ fn provinces() -> [Province; 3] {
         Province {
             owner: NationId(0),
             base_income: Fixed::from_int(10),
+            terrain: Terrain::Plains,
         },
         Province {
             owner: NationId(0),
             base_income: Fixed::from_ratio(5, 2).unwrap(),
+            terrain: Terrain::Plains,
         },
         Province {
             owner: NationId(1),
             base_income: Fixed::from_int(7),
+            terrain: Terrain::Plains,
         },
     ]
+}
+
+fn scenario() -> Scenario {
+    Scenario {
+        nations: 2,
+        provinces: provinces().to_vec(),
+        ..Scenario::default()
+    }
 }
 
 /// A fresh, empty directory under Cargo's per-test scratch space.
@@ -105,7 +116,7 @@ fn accepted(result: Result<(), SimError>) -> bool {
 
 /// The reference: the whole script in memory, no file. Also the log length after each step.
 fn clean_run() -> (Recorder, Vec<usize>) {
-    let mut rec = Recorder::create(SEED, 2, &provinces()).unwrap();
+    let mut rec = Recorder::create(SEED, &scenario()).unwrap();
     let mut lens = Vec::new();
     for (i, op) in script().into_iter().enumerate() {
         rec.advance_to(step_time(i)).unwrap();
@@ -150,7 +161,7 @@ fn resume_step(lens: &[usize], initial_len: usize, log_len: usize) -> usize {
 }
 
 fn initial_len() -> usize {
-    Recorder::create(SEED, 2, &provinces()).unwrap().log().len()
+    Recorder::create(SEED, &scenario()).unwrap().log().len()
 }
 
 /// The crash test's child process: opens (or creates) the world, runs the rest of the script
@@ -167,7 +178,7 @@ fn crash_worker() {
         let start = resume_step(&lens, initial_len(), host.recorder().log().len());
         (host, start)
     } else {
-        (Host::create(&db, SEED, 2, &provinces()).unwrap(), 0)
+        (Host::create(&db, SEED, &scenario()).unwrap(), 0)
     };
     let mut out = std::io::stdout().lock();
     for (i, op) in script().into_iter().enumerate().skip(start) {
@@ -268,7 +279,7 @@ fn crash_recovers_to_the_clean_run() {
 #[test]
 fn nothing_is_acked_before_it_is_durable() {
     let db = fresh_dir("ordering").join("world.db");
-    let mut host = Host::create(&db, SEED, 2, &provinces()).unwrap();
+    let mut host = Host::create(&db, SEED, &scenario()).unwrap();
     // A second connection sees only committed transactions, as a recovering server would.
     let reader = Connection::open(&db).unwrap();
     let stored = |seq: usize| -> Option<Record> {
@@ -322,7 +333,7 @@ fn backup_restores_to_the_moment_it_was_taken() {
     let dir = fresh_dir("backup");
     let (db, copy) = (dir.join("world.db"), dir.join("backup.db"));
     let (mut clean, lens) = clean_run();
-    let mut host = Host::create(&db, SEED, 2, &provinces()).unwrap();
+    let mut host = Host::create(&db, SEED, &scenario()).unwrap();
     let ops = script();
     let half = STEPS / 2;
     for (i, &op) in ops.iter().enumerate().take(half) {
@@ -352,7 +363,7 @@ fn backup_restores_to_the_moment_it_was_taken() {
 fn files_are_wal_and_refuse_misuse() {
     let dir = fresh_dir("misuse");
     let db = dir.join("world.db");
-    drop(Host::create(&db, SEED, 2, &provinces()).unwrap());
+    drop(Host::create(&db, SEED, &scenario()).unwrap());
 
     let raw = Connection::open(&db).unwrap();
     let mode: String = raw
@@ -361,7 +372,7 @@ fn files_are_wal_and_refuse_misuse() {
     assert_eq!(mode, "wal");
 
     assert!(matches!(
-        Host::create(&db, SEED, 2, &provinces()),
+        Host::create(&db, SEED, &scenario()),
         Err(StoreError::Exists)
     ));
     assert!(matches!(

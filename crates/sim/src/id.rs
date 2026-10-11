@@ -25,6 +25,10 @@ typed_id!(
     /// A nation.
     NationId
 );
+typed_id!(
+    /// An army (MP7).
+    ArmyId
+);
 
 #[cfg(test)]
 mod tests {

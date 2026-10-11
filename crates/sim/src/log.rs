@@ -7,19 +7,24 @@
 
 use std::fmt;
 
-use crate::codec::{DecodeError, Reader, Writer};
+use crate::codec::{DecodeError, Reader, Sink, Writer};
 use crate::hash::StateHasher;
 use crate::order::Order;
 use crate::time::{GameTime, SECONDS_PER_DAY};
-use crate::world::{Province, SimError, World};
+use crate::world::{Scenario, SimError, World};
 
 /// The rules this build runs (TM9). Bumped by every game update that can change outcomes;
 /// replay refuses snapshots and log records from any other version.
 pub const RULESET_VERSION: u32 = 1;
 
-/// The byte layout of snapshots and log records (TS6). Bumped on any layout change, together
-/// with a migration that reads the old version.
-pub const FORMAT_VERSION: u16 = 1;
+/// The byte layout of log records (TS6). Bumped on any layout change, together with a
+/// migration that reads the old version. New tags for new kinds of entries or orders extend
+/// the layout without changing it: old records keep their exact bytes.
+pub const RECORD_FORMAT: u16 = 1;
+
+/// The byte layout of snapshots (TS6). Version 2 (build-order stage 6) adds terrain, borders,
+/// armies and contacts; version 1 snapshots still load (`World::decode`).
+pub const SNAPSHOT_FORMAT: u16 = 2;
 
 /// Admin actions only steer the server's real-time clock; they change no sim state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,7 +65,7 @@ impl Record {
     #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         let mut w = Writer::new();
-        w.put_u16(FORMAT_VERSION);
+        w.put_u16(RECORD_FORMAT);
         w.put_i64(self.at.seconds());
         match self.entry {
             Entry::Ruleset(version) => {
@@ -100,7 +105,7 @@ impl Record {
     pub fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
         let mut r = Reader::new(bytes);
         let version = r.u16()?;
-        if version != FORMAT_VERSION {
+        if version != RECORD_FORMAT {
             return Err(DecodeError::UnsupportedVersion(version));
         }
         let at = GameTime(r.i64()?);
@@ -197,8 +202,8 @@ impl Recorder {
     ///
     /// # Errors
     /// As `World::new`.
-    pub fn create(seed: u64, nation_count: u32, provinces: &[Province]) -> Result<Self, SimError> {
-        let world = World::new(seed, nation_count, provinces)?;
+    pub fn create(seed: u64, scenario: &Scenario) -> Result<Self, SimError> {
+        let world = World::new(seed, scenario)?;
         let next_hash = next_boundary(world.now())?;
         let mut rec = Self {
             world,
@@ -248,11 +253,11 @@ impl Recorder {
     #[must_use]
     pub fn snapshot(&self) -> Vec<u8> {
         let mut w = Writer::new();
-        w.put_u16(FORMAT_VERSION);
+        w.put_u16(SNAPSHOT_FORMAT);
         w.put_u32(RULESET_VERSION);
         w.put_len(self.log.len());
         w.put_u64(self.digest.finish());
-        self.world.encode(&mut w);
+        self.world.write_state(&mut w);
         w.into_bytes()
     }
 
@@ -265,7 +270,7 @@ impl Recorder {
     pub fn replay(snapshot: &[u8], log: &[Record]) -> Result<Self, ReplayError> {
         let mut r = Reader::new(snapshot);
         let version = r.u16()?;
-        if version != FORMAT_VERSION {
+        if !(1..=SNAPSHOT_FORMAT).contains(&version) {
             return Err(DecodeError::UnsupportedVersion(version).into());
         }
         let ruleset = r.u32()?;
@@ -277,7 +282,7 @@ impl Recorder {
         }
         let covered = r.read_len()?;
         let digest = StateHasher::resume(r.u64()?);
-        let world = World::decode(&mut r)?;
+        let world = World::decode(&mut r, version)?;
         r.finish()?;
 
         let next_hash = next_boundary(world.now()).map_err(|_| DecodeError::Invalid("time"))?;

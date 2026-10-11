@@ -1,17 +1,21 @@
 //! Player orders: the inputs the log records (TM9). A validated order is applied at the
 //! world's current second; an invalid one changes nothing and is never logged.
 //!
-//! Stub (build-order stage 3): one order, just enough to exercise the log and replay. Real
-//! orders come with their systems; the wire format is the protocol crate's job (stage 7).
+//! `TransferProvince` is a stub (build-order stage 3) to exercise the log; `March` is the
+//! stage 6 movement slice (MP7). Further orders come with their systems; the wire format is
+//! the protocol crate's job (stage 7).
 
-use crate::codec::{DecodeError, Reader, Writer};
-use crate::id::{NationId, ProvinceId};
+use crate::codec::{DecodeError, Reader, Sink, Writer};
+use crate::id::{ArmyId, NationId, ProvinceId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Order {
     /// Hands a province to another nation: a sudden change, so both nations' income rates are
     /// recomputed in the same second (TM2).
     TransferProvince { province: ProvinceId, to: NationId },
+    /// Sends an army to `to` along the fastest route (MP7). A marching army first finishes
+    /// the road it is on; one halted on a road may turn back if that is faster.
+    March { army: ArmyId, to: ProvinceId },
 }
 
 impl Order {
@@ -23,6 +27,11 @@ impl Order {
                 w.put_u32(province.0);
                 w.put_u32(to.0);
             }
+            Self::March { army, to } => {
+                w.put_u8(1);
+                w.put_u32(army.0);
+                w.put_u32(to.0);
+            }
         }
     }
 
@@ -31,6 +40,10 @@ impl Order {
             0 => Ok(Self::TransferProvince {
                 province: ProvinceId(r.u32()?),
                 to: NationId(r.u32()?),
+            }),
+            1 => Ok(Self::March {
+                army: ArmyId(r.u32()?),
+                to: ProvinceId(r.u32()?),
             }),
             tag => Err(DecodeError::BadTag(tag)),
         }

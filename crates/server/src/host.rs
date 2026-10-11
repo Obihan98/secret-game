@@ -10,7 +10,7 @@ use std::path::Path;
 use sim::log::{AdminAction, Recorder};
 use sim::order::Order;
 use sim::time::GameTime;
-use sim::world::{Province, SimError};
+use sim::world::{Scenario, SimError};
 
 use crate::store::{Store, StoreError};
 
@@ -58,13 +58,8 @@ impl Host {
     ///
     /// # Errors
     /// As `Recorder::create` and `Store::create`.
-    pub fn create(
-        path: &Path,
-        seed: u64,
-        nation_count: u32,
-        provinces: &[Province],
-    ) -> Result<Self, StoreError> {
-        let rec = Recorder::create(seed, nation_count, provinces)?;
+    pub fn create(path: &Path, seed: u64, scenario: &Scenario) -> Result<Self, StoreError> {
+        let rec = Recorder::create(seed, scenario)?;
         let store = Store::create(path, &rec)?;
         Ok(Self::new(rec, store))
     }

@@ -22,13 +22,28 @@
 - Open details: exact count and how it is split by region; how provinces are authored (TS8); how a large nation's interface avoids busywork (UI).
 - Cross-checks: TM1, TM2, WD2, MP1, MP9, PL1, PL7, PL8, AI1, AI3, TS5, TS7, TS8, TS9, TS13
 
+### MP3. Terrain types 🟡
+- **Draft (2026-10-11, minimal for build-order stage 6):** four terrain types, one per province: **plains, forest, hills, mountains**. For now terrain only affects march speed (MP7): plains full speed, forest and hills 25% slower, mountains half speed.
+- Marsh, desert and urban, and terrain's effect on battles (CB), supply (AR8) and the economy, are decided when those systems are built.
+- Cross-checks: MP7, CB6, AR8, TS8
+
+### MP7. Movement model 🟡
+- **Draft (2026-10-11, minimal for build-order stage 6):** one army speed for now: **20 km per game day** on plains, the historical pace TM1 is calibrated on (60 km of open ground = 3 game days = 3 real hours at 24x). Armies march from province to adjacent province along the border between them; each crossing has a length in km. The terrain of the province being entered sets the speed for that crossing (MP3).
+- Arrival is an exact-timestamp event (TM2); the daily pass recomputes speed and reschedules only arrivals whose speed changed (T12).
+- **Stage 6 details (2026-10-11):**
+  - Speeds are whole meters per game-day: terrain, then winter, then supply, each rounding down (e.g. winter, foreign forest: 20,000 x 3/4 x 3/4 x 3/4 = 8,437 m/day). Positions round down, arrivals round up, so an army never arrives before it has covered the road.
+  - Speed is set when a road is started and recomputed by the owner's daily pass; a sudden change (a province changing hands) reaches marching armies at that pass.
+  - **Stubs, agreed with the user, replaced when their systems are designed:** winter = December to February on 365-day years from 1 January 1800 (TM4, MP6), 25% slower; out of supply = entering a province the army's nation does not own (AR8), 25% slower.
+  - **Route (MP8 stub):** the player picks a destination; the game picks the fastest route by terrain (season and supply ignored for routing), ties to the lower province ID. A marching army finishes its current road before following a new route; one halted on a road may turn back.
+  - **Meetings (contact stub until combat, CB):** armies of different nations meet when they share a point on a road (head-on, walking into a halted army, or a faster one catching up), or when one arrives where another stands. Both stop; a contact is recorded. Found when a road is planned or re-planned (TM2). Armies of the same nation pass freely.
+- Later: speed by unit type, forced march, fatigue, roads (MP5), rivers (MP4).
+- Cross-checks: TM1, TM2, MP3, MP5, MP8, AR8, AR1, CB
+
 ## Topic backlog
 
-- ⬜ **MP3 Terrain types** — plains, forest, hills, mountains, marsh, desert, urban; what each affects.
 - ⬜ **MP4 Rivers & crossings** — bridges, fords, pontoons, river lines as defenses.
 - ⬜ **MP5 Roads & infrastructure** — road quality, building roads, canals.
 - ⬜ **MP6 Weather & climate** — winter, mud season, rain, regional climate (Russian winter, Spanish heat).
-- ⬜ **MP7 Movement model** — speed per unit type, forced march, terrain/road modifiers, fatigue.
 - ⬜ **MP8 Orders & pathfinding** — waypoints, march orders, rally points, follow/shadow orders.
 - ⬜ **MP9 ★ Fog of war** — what you can see, scouting radius, cavalry screens.
 - ⬜ **MP10 Information delay** — news travels at courier speed (links TM7, ES5).

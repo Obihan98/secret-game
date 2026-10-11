@@ -9,6 +9,7 @@ pub mod fixed;
 pub mod hash;
 pub mod id;
 pub mod log;
+pub mod movement;
 pub mod order;
 pub mod queue;
 pub mod rng;
