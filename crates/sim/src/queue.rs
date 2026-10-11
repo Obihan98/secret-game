@@ -1,0 +1,200 @@
+//! The world's single event queue (TM2, TS5), ordered by `(game-second, priority, sequence)`.
+
+use std::cmp::{Ordering, Reverse};
+use std::collections::BinaryHeap;
+
+use crate::time::GameTime;
+
+/// Tie-break between events in the same game-second: lower runs first. Each event kind gets
+/// its value from one fixed table (TM2), never computed at runtime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Priority(pub u16);
+
+/// The full ordering key. `sequence` is unique per queue, so no two keys are equal and the
+/// pop order never depends on how the heap breaks ties.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EventKey {
+    pub time: GameTime,
+    pub priority: Priority,
+    pub sequence: u64,
+}
+
+#[derive(Debug)]
+struct Entry<E> {
+    key: EventKey,
+    event: E,
+}
+
+// Ordered by key only, so event payloads need no ordering of their own.
+impl<E> PartialEq for Entry<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+impl<E> Eq for Entry<E> {}
+
+impl<E> PartialOrd for Entry<E> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<E> Ord for Entry<E> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
+#[derive(Debug)]
+pub struct EventQueue<E> {
+    heap: BinaryHeap<Reverse<Entry<E>>>,
+    next_sequence: u64,
+}
+
+impl<E> Default for EventQueue<E> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<E> EventQueue<E> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            heap: BinaryHeap::new(),
+            next_sequence: 0,
+        }
+    }
+
+    /// Schedules `event`; among equal `(time, priority)` events, earlier pushes run first.
+    pub fn push(&mut self, time: GameTime, priority: Priority, event: E) -> EventKey {
+        let key = EventKey {
+            time,
+            priority,
+            sequence: self.next_sequence,
+        };
+        // 2^64 pushes cannot happen in a world's lifetime; wrapping keeps this panic-free.
+        self.next_sequence = self.next_sequence.wrapping_add(1);
+        self.heap.push(Reverse(Entry { key, event }));
+        key
+    }
+
+    /// Removes and returns the earliest event.
+    pub fn pop(&mut self) -> Option<(EventKey, E)> {
+        self.heap.pop().map(|Reverse(e)| (e.key, e.event))
+    }
+
+    #[must_use]
+    pub fn peek_key(&self) -> Option<EventKey> {
+        self.heap.peek().map(|Reverse(e)| e.key)
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.heap.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.heap.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn drain<E>(q: &mut EventQueue<E>) -> Vec<(EventKey, E)> {
+        std::iter::from_fn(|| q.pop()).collect()
+    }
+
+    #[test]
+    fn earlier_time_runs_first() {
+        let mut q = EventQueue::new();
+        q.push(GameTime(20), Priority(0), "late");
+        q.push(GameTime(10), Priority(9), "early");
+        let order: Vec<_> = drain(&mut q).into_iter().map(|(_, e)| e).collect();
+        assert_eq!(order, ["early", "late"]);
+    }
+
+    #[test]
+    fn same_time_lower_priority_runs_first() {
+        let mut q = EventQueue::new();
+        q.push(GameTime(10), Priority(5), "daily pass");
+        q.push(GameTime(10), Priority(1), "combat phase");
+        let order: Vec<_> = drain(&mut q).into_iter().map(|(_, e)| e).collect();
+        assert_eq!(order, ["combat phase", "daily pass"]);
+    }
+
+    #[test]
+    fn full_tie_runs_in_push_order() {
+        let mut q = EventQueue::new();
+        for name in ["a", "b", "c", "d"] {
+            q.push(GameTime(10), Priority(1), name);
+        }
+        let order: Vec<_> = drain(&mut q).into_iter().map(|(_, e)| e).collect();
+        assert_eq!(order, ["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn push_returns_the_key_pop_reports() {
+        let mut q = EventQueue::new();
+        let k1 = q.push(GameTime(3), Priority(2), ());
+        let k0 = q.push(GameTime(1), Priority(2), ());
+        assert_eq!(q.len(), 2);
+        assert_eq!(q.peek_key(), Some(k0));
+        assert_eq!(q.pop().map(|(k, ())| k), Some(k0));
+        assert_eq!(q.pop().map(|(k, ())| k), Some(k1));
+        assert!(q.is_empty());
+        assert_eq!(q.pop(), None);
+    }
+
+    proptest! {
+        /// Popping everything equals a stable sort of the pushes by `(time, priority)`.
+        #[test]
+        fn pop_order_is_stable_sort_by_time_then_priority(
+            pushes in prop::collection::vec((0i64..50, 0u16..4), 0..200),
+        ) {
+            let mut q = EventQueue::new();
+            for (i, &(t, p)) in pushes.iter().enumerate() {
+                q.push(GameTime(t), Priority(p), i);
+            }
+            let got: Vec<usize> = drain(&mut q).into_iter().map(|(_, i)| i).collect();
+
+            let mut expected: Vec<usize> = (0..pushes.len()).collect();
+            expected.sort_by_key(|&i| pushes[i]);
+            prop_assert_eq!(got, expected);
+        }
+
+        /// Interleaving pushes and pops still pops keys in increasing order as long as nothing
+        /// is pushed before the last popped key (the world loop never does that).
+        #[test]
+        fn interleaved_pops_are_monotonic(
+            ops in prop::collection::vec((any::<bool>(), 0i64..20, 0u16..3), 0..300),
+        ) {
+            let mut q = EventQueue::new();
+            let mut now = GameTime(0);
+            let mut last: Option<EventKey> = None;
+            for (is_pop, dt, p) in ops {
+                if is_pop {
+                    if let Some((key, ())) = q.pop() {
+                        if let Some(prev) = last {
+                            prop_assert!(prev < key);
+                        }
+                        now = key.time;
+                        last = Some(key);
+                    }
+                } else {
+                    // Same second as the last pop: a lower priority would sort before it.
+                    let p = match last {
+                        Some(prev) if dt == 0 => p.max(prev.priority.0),
+                        _ => p,
+                    };
+                    q.push(GameTime(now.0 + dt), Priority(p), ());
+                }
+            }
+        }
+    }
+}

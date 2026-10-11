@@ -44,7 +44,8 @@
   - **Threading:** a world runs on a single thread to stay deterministic. Scale comes from running many worlds in parallel. Parallel read-only work inside a single event or daily pass is allowed later if profiling needs it.
   - **Systems:** economy, movement, combat etc. are separate modules that read state and emit events, never call each other directly. Each has its own seeded RNG stream (TM9).
   - **Snapshots:** the full state is saved periodically (e.g. each game-month); restart = latest snapshot + replay of the log after it (TS6).
-- Open details: snapshot interval, event-queue data structure, how modules share read access to state.
+- Event queue (stage 1): a binary heap keyed `(game-second, priority, sequence)`; lower priority runs first; the sequence is a per-queue counter, so every key is unique and pop order never depends on heap internals.
+- Open details: snapshot interval, how modules share read access to state.
 - Cross-checks: TM2, TM9, WD1, WD2, AI1, TS3, TS4, TS6
 
 ### TS6. Persistence ✅
@@ -69,7 +70,7 @@
 - **Draft: Rust tests with `cargo test`, `proptest` for property tests, `criterion` for benchmarks, and committed golden hashes** (expected state hashes and PRNG values checked into the repo, so any change to sim output fails a test until the golden value is deliberately updated).
   - Every sim feature ships a determinism test: same seed + same inputs = same state hash; snapshot + log replay = live state (TM9).
   - `scripts/check.ps1` is the single gate: `cargo fmt --check`, clippy (`-D warnings`), `cargo test --workspace`, Godot headless smoke check (build-order rule 4).
-  - Determinism bans are enforced by clippy (`clippy.toml`): `HashMap`/`HashSet` (`disallowed_types`), `Instant::now`/`SystemTime::now` (`disallowed_methods`).
+  - Determinism bans are enforced by clippy (`clippy.toml`): `HashMap`/`HashSet` (`disallowed_types`), `Instant::now`/`SystemTime::now` (`disallowed_methods`). The gate's `lint-bans` step runs clippy on a fixture crate (`scripts/lint_bans/`) that breaks every ban and fails unless clippy rejects each one.
 - Open details: GDScript test tool (GUT vs gdUnit4), chosen at build-order stage 8; CI (TS14).
 - Cross-checks: TM9, TS3, TS5, TS13, TS14
 

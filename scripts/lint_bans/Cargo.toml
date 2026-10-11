@@ -1,0 +1,10 @@
+# Fixture for scripts/check.ps1: clippy must REJECT this crate. It sits under the repo root, so
+# clippy reads the same clippy.toml as the workspace; it is excluded from the workspace so a
+# normal build never sees it.
+[package]
+name = "lint_bans"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]

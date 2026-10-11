@@ -38,6 +38,9 @@
   - **State math:** integer or fixed-point for anything that affects state. Floats only for display and client-side interpolation; the server's integer result is the truth.
   - **Persistence:** periodic snapshots plus an append-only **input log**: player orders, admin actions (pause, resume, ratio change) and RNG seeds. Replay re-derives every other event by running the sim; derived events are not logged. A **state hash every game-day** is written to the log so a divergence is detected within a day. Any moment inside one ruleset version can be rebuilt by loading a snapshot and replaying forward. Enables audit, dispute resolution and crash recovery; rollback policy belongs to FA6.
   - **Game updates:** each update takes a snapshot and stamps the log with the new **ruleset version**. Replay and audit work within one version; older history is kept as read-only evidence.
+- **Number and RNG formats (decided 2026-10-11, build-order stage 1):**
+  - Fixed-point is `i64` Q32.32 (32 integer bits, 32 fraction bits: range ±2.1 billion, precision ~2.3e-10, so small daily rates such as 1%/year survive). Multiply and divide go through `i128`. Results round to nearest, ties to even, so 30 years of daily passes do not drift in one direction. Overflow and division by zero return an error; nothing wraps or saturates silently.
+  - The PRNG is our own xoshiro256**. Each stream's state is filled by SplitMix64 from `(world seed, stream id)`, one stream id per system. Golden-value tests pin the output.
 - Cost accepted: the simulation must be strictly deterministic (no hash-order iteration, no wall-clock reads, no platform-dependent float behavior). This constrains language and architecture (TS3, TS5), so it is decided before them.
 - Open details: snapshot cadence; log retention; whether players can see replays of their own battles (TM10).
 - Cross-checks: TM1, TM2, TM3, TM10, TS3, TS4, TS5, TS6, TS12, FA (dispute resolution)

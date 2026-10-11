@@ -14,7 +14,7 @@ Rules and status legend: [README.md](README.md).
 |---|---|---|---|
 | TM1 | Time scale | 1 real hour = 1 game day (per-world setting); Paris→Vienna ≈ 2 real days | [time-simulation](mechanics/foundation/time-simulation.md) |
 | TM2 | Tick model | Hybrid: one event queue keyed `(game-second, priority, sequence)`; exact events + recurring daily/monthly events for coupled systems; movement re-planned at the daily pass | [time-simulation](mechanics/foundation/time-simulation.md) |
-| TM9 | Determinism & audit log | Integer game-seconds, seeded RNG per system, fixed-point state math; input log + daily state hash; snapshots, with a ruleset version per update | [time-simulation](mechanics/foundation/time-simulation.md) |
+| TM9 | Determinism & audit log | Integer game-seconds, seeded RNG per system, fixed-point state math (Q32.32, round half to even), xoshiro256** streams; input log + daily state hash; snapshots, with a ruleset version per update | [time-simulation](mechanics/foundation/time-simulation.md) |
 | TM3 | Downtime & pausing | Clock runs only while the server is up; no catch-up after outages; the creator can pause (2 h each, 8 h/week, public), we pause for maintenance; hibernation is lazy simulation | [time-simulation](mechanics/foundation/time-simulation.md) |
 | WD1 | World structure | Many independent worlds, created by users (creator = admin), hosted by us, running continuously | [world-lifecycle](mechanics/foundation/world-lifecycle.md) |
 | WD3 | Start date | 1 January 1800 | [world-lifecycle](mechanics/foundation/world-lifecycle.md) |
