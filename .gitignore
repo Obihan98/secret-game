@@ -1,0 +1,11 @@
+# Godot 4+ specific ignores
+.godot/
+client/.godot/
+/android/
+
+# Rust build output
+target/
+
+# OS and local tool files
+.DS_Store
+.claude/settings.local.json
