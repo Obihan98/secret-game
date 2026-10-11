@@ -26,6 +26,13 @@ impl StateHasher {
         }
     }
 
+    /// Continues from a saved `finish()` value: FNV-1a's whole state is that one word, so a
+    /// digest can be carried across a snapshot.
+    #[must_use]
+    pub const fn resume(state: u64) -> Self {
+        Self { state }
+    }
+
     pub fn write_bytes(&mut self, bytes: &[u8]) {
         for &b in bytes {
             self.state = (self.state ^ u64::from(b)).wrapping_mul(PRIME);

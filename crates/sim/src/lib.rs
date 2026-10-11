@@ -2,11 +2,14 @@
 
 #![forbid(unsafe_code)]
 
+pub mod codec;
 mod economy;
 pub mod event;
 pub mod fixed;
 pub mod hash;
 pub mod id;
+pub mod log;
+pub mod order;
 pub mod queue;
 pub mod rng;
 pub mod time;

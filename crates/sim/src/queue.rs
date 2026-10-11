@@ -67,6 +67,27 @@ impl<E> EventQueue<E> {
         }
     }
 
+    /// Rebuilds a saved queue from `next_sequence()` and the pending `(key, event)` pairs, so
+    /// the restored queue breaks ties exactly as the saved one would. `None` if two keys share
+    /// a sequence or one is not below `next_sequence` (only corrupt data does that).
+    #[must_use]
+    pub fn from_parts(next_sequence: u64, entries: Vec<(EventKey, E)>) -> Option<Self> {
+        let mut sequences: Vec<u64> = entries.iter().map(|(k, _)| k.sequence).collect();
+        sequences.sort_unstable();
+        let unique = sequences.windows(2).all(|w| w[0] != w[1]);
+        if !unique || sequences.last().is_some_and(|&s| s >= next_sequence) {
+            return None;
+        }
+        let heap = entries
+            .into_iter()
+            .map(|(key, event)| Reverse(Entry { key, event }))
+            .collect();
+        Some(Self {
+            heap,
+            next_sequence,
+        })
+    }
+
     /// Schedules `event`; among equal `(time, priority)` events, earlier pushes run first.
     pub fn push(&mut self, time: GameTime, priority: Priority, event: E) -> EventKey {
         let key = EventKey {
@@ -180,6 +201,23 @@ mod tests {
         assert_eq!(q.len(), 3);
         assert_eq!(q.next_sequence(), 3);
         assert_eq!(listed, drain(&mut q));
+    }
+
+    #[test]
+    fn from_parts_restores_order_and_rejects_bad_sequences() {
+        let mut q = EventQueue::new();
+        q.push(GameTime(5), Priority(1), "b");
+        q.push(GameTime(5), Priority(1), "c");
+        q.push(GameTime(1), Priority(1), "a");
+        let parts: Vec<_> = q.sorted().into_iter().map(|(k, &e)| (k, e)).collect();
+        let mut restored = EventQueue::from_parts(q.next_sequence(), parts.clone()).unwrap();
+        assert_eq!(restored.next_sequence(), 3);
+        assert_eq!(drain(&mut restored), drain(&mut q));
+
+        assert!(EventQueue::from_parts(2, parts.clone()).is_none());
+        let mut dup = parts;
+        dup[1].0.sequence = dup[0].0.sequence;
+        assert!(EventQueue::from_parts(3, dup).is_none());
     }
 
     proptest! {

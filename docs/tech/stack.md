@@ -46,6 +46,7 @@
   - **Snapshots:** the full state is saved periodically (e.g. each game-month); restart = latest snapshot + replay of the log after it (TS6).
 - Event queue (stage 1): a binary heap keyed `(game-second, priority, sequence)`; lower priority runs first; the sequence is a per-queue counter, so every key is unique and pop order never depends on heap internals.
 - World (stage 2): `World` holds `Vec` tables (`nations`, `provinces`), the queue and the RNG streams; `run_until(t)` pops every event with time <= t. Event kinds and their priorities live in one `match` (`event.rs`); stream IDs in one table (`rng::streams`). The state hash covers clock, streams, tables and the pending queue (TM9). Golden hash for the tiny world is committed in `crates/sim/tests/tiny_world.rs`.
+- Log and replay (stage 3): `log::Recorder` wraps the world and is the only way inputs reach it: `submit(order)`, `admin(action)`, `advance_to(t)` (which writes a daily hash at each day boundary), `snapshot()`, and `Recorder::replay(snapshot, log)`. Orders are sim types for now (`order.rs`, one stub order); the protocol crate takes over the wire format at stage 7.
 - Open details: snapshot interval, how modules share read access to state.
 - Cross-checks: TM2, TM9, WD1, WD2, AI1, TS3, TS4, TS6
 
@@ -57,6 +58,7 @@
   - **Scope:** the world file holds game state only. Accounts, world list and chat live in a separate shared database (TS11).
   - **Versioning:** every snapshot and log record carries a format version from day one, with migration code to upgrade old worlds after game updates. Every update also takes a snapshot and stamps the log with a ruleset version (TM9).
 - Alternative considered: one shared PostgreSQL for all worlds. Easier cross-world queries and standard backup tools, but heavier to run and a shared bottleneck and single point of failure.
+- **Format v1 (stage 3):** our own fixed-width little-endian encoding, no serialization crate, so a dependency update can never change what an old file means. Decoding is strict (exact length, known tags), so different bytes never decode to the same value. A log record is `format version (u16), game-second, tag, payload`. A snapshot is `format version (u16), ruleset version (u32), number of log records it covers, the running daily log digest`, then the world state in the same order the state hash uses. Golden bytes for v1 are committed in `crates/sim/tests/replay.rs`; the first layout change bumps the format version and must load those bytes through a migration (the stage 3 "N loads in N+1" test becomes real then).
 - Open details: flush interval, snapshot interval and retention, backup strategy, migration approach.
 - Cross-checks: TM3, TM9, TS4, TS5, TS11, WD1, WD4
 

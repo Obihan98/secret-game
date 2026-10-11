@@ -1,15 +1,16 @@
 //! Economy stub (build-order stage 2): just enough to exercise the daily pass. The real
 //! economy is designed at stage 10.
 //!
-//! A balance is `treasury + income_per_day * elapsed` (TM2); the pass settles that into the
-//! treasury and recomputes the rate from the provinces the nation owns.
+//! A balance is `treasury + income_per_day * elapsed` (TM2). The daily pass and every sudden
+//! change (a province changing hands) settle that into the treasury and recompute the rate.
 
 use crate::fixed::Fixed;
 use crate::id::NationId;
 use crate::time::{GameTime, SECONDS_PER_DAY};
 use crate::world::{Nation, Province, SimError};
 
-pub(crate) fn daily_pass(
+/// Settles `nation`'s balance at `now` and recomputes its rate from the provinces it owns.
+pub(crate) fn rerate(
     nations: &mut [Nation],
     provinces: &[Province],
     nation: NationId,

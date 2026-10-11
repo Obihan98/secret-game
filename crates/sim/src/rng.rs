@@ -47,6 +47,13 @@ impl Rng {
         self.s
     }
 
+    /// Restores a stream saved with `state_words` (snapshot load). `None` for the all-zero
+    /// state, which `new` never produces and from which xoshiro only ever draws zeros.
+    #[must_use]
+    pub fn from_state_words(s: [u64; 4]) -> Option<Self> {
+        (s != [0; 4]).then_some(Self { s })
+    }
+
     pub fn next_u64(&mut self) -> u64 {
         let s = &mut self.s;
         let result = s[1].wrapping_mul(5).rotate_left(7).wrapping_mul(9);
