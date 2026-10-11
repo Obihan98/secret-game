@@ -26,7 +26,7 @@
 
 ### Stage 0: Scaffold and tooling gate
 - **Do:** move the Godot project into `client/` (`project.godot`, `icon.svg`, `icon.svg.import`; recreate `.godot/`); create the Cargo workspace (`crates/sim`, `crates/server`, `crates/protocol`), `rust-toolchain.toml`, `rustfmt.toml`, workspace lints, `.gdignore` where needed, `scripts/check.ps1`; add the sim lints above.
-- **Decide first:** TS12 test tooling. Proposal: `cargo test`, `proptest` for properties, criterion for benchmarks, committed golden hashes; GDScript tests chosen at stage 7.
+- **Decide first:** TS12 test tooling. Decided (🟡): `cargo test`, `proptest` for properties, criterion for benchmarks, committed golden hashes; GDScript tests chosen at stage 8.
 - **Gate:** `scripts/check.ps1` is green on empty crates; `godot --headless --path client --quit` exits 0; a deliberately failing test turns the script red (proves the gate works).
 
 ### Stage 1: Sim primitives

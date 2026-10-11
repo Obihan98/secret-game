@@ -35,6 +35,7 @@ Rules and status legend: [README.md](README.md).
 | WD2 | World size | Every nation on the whole-world map is playable; unclaimed nations run by AI, dormant ones at reduced fidelity. Waits for the scale spike (T8) | [world-lifecycle](mechanics/foundation/world-lifecycle.md) |
 | MP2 | Spatial model | Provinces with a hierarchy, ~30,000 across the world. Waits for the scale spike (T8) | [map-movement](mechanics/foundation/map-movement.md) |
 | TS5 | Simulation architecture | Hand-written ID-indexed tables (no ECS); one event queue; state changes only via events; one thread per world. Waits for the scale spike (T8) | [stack](tech/stack.md) |
+| TS12 | Testing | `cargo test`, `proptest`, `criterion`, committed golden hashes; `scripts/check.ps1` is the gate; GDScript test tool chosen at build-order stage 8 | [stack](tech/stack.md) |
 | PL1 | Shared nations | Teams run nations, no player cap per nation (limits open) | [players-teams](mechanics/foundation/players-teams.md) |
 | PL4 | Hosting model | We run every machine; a world's creator is its admin (open: succession, private worlds, GM tools) | [players-teams](mechanics/foundation/players-teams.md) |
 | NV1 / CO1 | Naval and colony depth | In scope since MP1; how deep is open | [naval](mechanics/military/naval.md), [colonies-overseas](mechanics/statecraft/colonies-overseas.md) |
@@ -104,7 +105,7 @@ _From the P0 alignment pass (2026-10-11). "Blocks ✅" lists the drafts that sho
 
 ### P2 Systems
 
-FI1, FI2, TR1, TR2, DI2, DI4, DI5, GO1, GO2, GO13, AI1, ES1, EV1, BA1, MP3, MP7, AR2, AR4, CB11, PL2, PL3, TS7, TS8, TS9, TS10, TS12.
+FI1, FI2, TR1, TR2, DI2, DI4, DI5, GO1, GO2, GO13, AI1, ES1, EV1, BA1, MP3, MP7, AR2, AR4, CB11, PL2, PL3, TS7, TS8, TS9, TS10, TS12 🟡 (GDScript tool at stage 8).
 
 ### P3 Later
 

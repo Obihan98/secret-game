@@ -61,8 +61,17 @@
 ### TS15. Repo layout ✅
 - **Decision: one repo.** The repo root holds the Cargo workspace (`crates/sim`, `crates/server`, `crates/protocol`, and later `crates/gdext` if the client ever loads the sim), `docs/` and `CLAUDE.md`. The Godot project moves to `client/` (so `project.godot` lives in `client/`), keeping Godot away from Rust build output and docs.
 - Folder and file names are lowercase `snake_case`; third-party Godot code lives in `client/addons/`; client folders are grouped by feature (`client/map/`, `client/ui/`, `client/net/`), each with its scenes, scripts and assets side by side.
-- Open details: Git LFS for art, branching, when the move is done (before the first client code).
+- The move to `client/` was done in build-order stage 0.
+- Open details: Git LFS for art, branching.
 - Cross-checks: TS1, TS3, TS4
+
+### TS12. Testing 🟡
+- **Draft: Rust tests with `cargo test`, `proptest` for property tests, `criterion` for benchmarks, and committed golden hashes** (expected state hashes and PRNG values checked into the repo, so any change to sim output fails a test until the golden value is deliberately updated).
+  - Every sim feature ships a determinism test: same seed + same inputs = same state hash; snapshot + log replay = live state (TM9).
+  - `scripts/check.ps1` is the single gate: `cargo fmt --check`, clippy (`-D warnings`), `cargo test --workspace`, Godot headless smoke check (build-order rule 4).
+  - Determinism bans are enforced by clippy (`clippy.toml`): `HashMap`/`HashSet` (`disallowed_types`), `Instant::now`/`SystemTime::now` (`disallowed_methods`).
+- Open details: GDScript test tool (GUT vs gdUnit4), chosen at build-order stage 8; CI (TS14).
+- Cross-checks: TM9, TS3, TS5, TS13, TS14
 
 ## Topic backlog
 
@@ -71,7 +80,6 @@
 - ⬜ **TS9 Map rendering** — province color-lookup shader, map modes, zoom levels, unit icons, renderer choice.
 - ⬜ **TS10 Content data format** — Godot Resources vs JSON/CSV for goods, units, events; moddability.
 - ⬜ **TS11 Backend services** — accounts, login, world browser, chat (links PL2, PL3, UI5).
-- ⬜ **TS12 Testing** — unit tests (GUT / gdUnit4), headless sim tests, determinism/replay tests.
 - ⬜ **TS13 Performance budgets & profiling** — target world size, server CPU/RAM per world, client FPS, tooling.
 - ⬜ **TS14 Build, deploy & hosting** — CI, export presets, server hosting, containers, update rollout.
 - ⬜ **TS16 Server validation & anti-cheat** — order validation, rate limits, what the client is allowed to know (links FA).

@@ -34,9 +34,9 @@ Design lives in `docs/`: read `docs/README.md` (rules) and `docs/DECISIONS.md` (
 - Code order: `class_name`, `extends`, signals, enums, consts, `@export`, vars, `@onready`, then callbacks, then methods.
 - The client holds NO game rules. Call down, signal up. Autoloads only for small global services. Prefer unique scene names (`%Node`) over long `get_node()` paths.
 - Keep `_process` light; no per-frame allocations or tree searches. Use a shader/lookup for province coloring, not one node per province.
-- Run headless checks with `godot --headless --path . --quit` (the `godot` shim is on PATH).
+- Run headless checks with `godot --headless --path client --quit` (the `godot` shim is on PATH).
 
-## Folder layout (decided, TS15; `project.godot` still at the root until stage 0 moves it to `client/`)
+## Folder layout (decided, TS15; `project.godot` lives in `client/`)
 ```
 docs/            design docs (add an empty .gdignore if the Godot project root contains it)
 crates/sim/      pure simulation library

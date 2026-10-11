@@ -1,0 +1,14 @@
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+
+# Determinism (TM9): iteration order of hashed collections and wall-clock reads differ between
+# runs. Applies workspace-wide; the server may opt out per item with an `#[allow]` and a reason.
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "iteration order is not deterministic; use Vec or BTreeMap" },
+    { path = "std::collections::HashSet", reason = "iteration order is not deterministic; use Vec or BTreeSet" },
+]
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "wall clock breaks determinism; use game-seconds" },
+    { path = "std::time::SystemTime::now", reason = "wall clock breaks determinism; use game-seconds" },
+]
