@@ -43,7 +43,7 @@
 
 ### Stage 4: Scale spike (TS13, resolves T8)
 - **Do:** a generator for a synthetic world (30,000 provinces, ~200 nations); criterion benchmarks for the daily pass, event throughput, snapshot size and time, and event fan-out filtering for ~200 simulated clients. Sim only, no network.
-- **Gate:** numbers recorded in TS13 with a go/no-go: the daily pass for all nations fits comfortably inside one real hour of single-thread time with large headroom (target agreed with the user before measuring). If it fails, change the design (province count, fidelity levels, table layout) before any later stage.
+- **Gate:** numbers recorded in TS13 with a go/no-go: the daily passes of all nations for one game-day take at most 1 second of single-thread time in a release build (TS13, agreed with the user 2026-10-11). If it fails, change the design (province count, fidelity levels, table layout) before any later stage.
 
 ### Stage 5: Persistence
 - **Do:** SQLite file per world (rusqlite, bundled), WAL + `synchronous=FULL`, ~1 s batched flush, snapshots in the same file, format versions, ack and broadcast only after flush.
@@ -79,7 +79,7 @@ For each system (economy, pops, supply, combat, ...), in the P1/P2 order of `DEC
 | Before stage | Needs |
 |---|---|
 | 0 | TS12 test tooling |
-| 4 | agreed performance target (TS13) |
+| 4 | agreed performance target (TS13: 1 s per game-day, decided) |
 | 6 | MP7 movement basics, MP3 terrain (minimal) |
 | 7 | TS7 networking, MP9 fog of war (minimal) |
 | 8 | TS8 map pipeline, TS9 rendering |

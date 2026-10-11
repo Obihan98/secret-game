@@ -77,6 +77,23 @@
 - Open details: GDScript test tool (GUT vs gdUnit4), chosen at build-order stage 8; CI (TS14).
 - Cross-checks: TM9, TS3, TS5, TS13, TS14
 
+### TS13. Performance budgets & profiling 🟡
+- **Draft: one full game-day of the whole world costs at most 1 second of single-thread server time** (decided with the user 2026-10-11, before measuring). That is every nation's daily pass on the stage 4 synthetic world (30,000 provinces, ~200 nations), release build, one thread. Against the 1 real hour a game-day lasts at 24x (TM1) this is ~0.03% of the hour, so one machine can host many worlds (WD1).
+- Stage 4 also measures and records here, without a pass/fail target yet: event throughput, snapshot size and time, and event fan-out filtering for ~200 simulated clients.
+- **Results (stage 4, 2026-10-11): GO.** `cargo bench -p sim` (`crates/sim/benches/scale.rs`), release build, one thread, AMD Ryzen 9 7900X, Windows 11. Synthetic world: 30,000 provinces with random owners among 200 nations.
+  | Measure | Result | Note |
+  |---|---|---|
+  | One game-day: all 200 daily passes | 1.31 ms | |
+  | One game-day: passes + daily hash record (**the gate**) | **1.61 ms** | budget 1 s: ~620x headroom |
+  | Event queue, pop + push, 1k / 100k / 1M pending | 32 / 93 / 408 ns per event | ~2.4 million events/s even with 1M pending |
+  | Snapshot size | 371 KB | after 30 game-days |
+  | Snapshot save / load | 40 µs / 53 µs | |
+  | State hash | 274 µs | byte-at-a-time FNV-1a; the slowest part of a game-day, still cheap |
+  | Fan-out filter, 200 clients | 175 ns per event | stub visibility: own provinces + 300 others per nation (MP9 not designed) |
+  - Caveat: the economy is still the stage 2 stub (each pass sums its nation's provinces, scanning all 30,000), so the real systems may cost far more per day. The ~620x headroom is what they can spend before the 1 s budget is hit; each system's benchmark is checked against it (build-order stage 10).
+- Open details: RAM per world, client FPS, profiling tools, the budget for the other numbers above.
+- Cross-checks: TM1, TM2, WD1, WD2, MP2, TS5, TS12
+
 ## Topic backlog
 
 - ⬜ **TS7 Networking** — transport (ENet / WebSocket / WebRTC), sync model (deltas, events), interest management by fog of war.
@@ -84,7 +101,6 @@
 - ⬜ **TS9 Map rendering** — province color-lookup shader, map modes, zoom levels, unit icons, renderer choice.
 - ⬜ **TS10 Content data format** — Godot Resources vs JSON/CSV for goods, units, events; moddability.
 - ⬜ **TS11 Backend services** — accounts, login, world browser, chat (links PL2, PL3, UI5).
-- ⬜ **TS13 Performance budgets & profiling** — target world size, server CPU/RAM per world, client FPS, tooling.
 - ⬜ **TS14 Build, deploy & hosting** — CI, export presets, server hosting, containers, update rollout.
 - ⬜ **TS16 Server validation & anti-cheat** — order validation, rate limits, what the client is allowed to know (links FA).
 - ⬜ **TS17 Logging, metrics & admin tools** — server logs, telemetry, GM/admin console.

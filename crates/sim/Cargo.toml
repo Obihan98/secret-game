@@ -9,4 +9,9 @@ publish.workspace = true
 workspace = true
 
 [dev-dependencies]
+criterion = { version = "0.8.2", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[[bench]]
+name = "scale"
+harness = false
